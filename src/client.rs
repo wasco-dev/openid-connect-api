@@ -25,7 +25,7 @@ async fn send<T: for<'de> serde::Deserialize<'de>>(request: Request<Body>) -> Re
     let response = client
         .send(request)
         .await
-        .map_err(|err| ApiError::HttpError(err.to_string()))?;
+        .map_err(|error| ApiError::HttpError(error.to_string()))?;
 
     let status = response.status();
     let mut body = response.into_body();
@@ -33,12 +33,12 @@ async fn send<T: for<'de> serde::Deserialize<'de>>(request: Request<Body>) -> Re
     if status.is_success() {
         body.json::<T>()
             .await
-            .map_err(|err| ApiError::ParseError(err.to_string()))
-    } else if let Ok(err) = body.json::<OAuthError>().await {
+            .map_err(|error| ApiError::ParseError(error.to_string()))
+    } else if let Ok(oauth_error) = body.json::<OAuthError>().await {
         Err(ApiError::ServerError(ServerErrorBody {
-            error: err.error,
-            error_description: err.error_description,
-            error_uri: err.error_uri,
+            error: oauth_error.error,
+            error_description: oauth_error.error_description,
+            error_uri: oauth_error.error_uri,
         }))
     } else {
         Err(ApiError::HttpError(format!(
@@ -57,7 +57,7 @@ fn build_form_request(url: &str, params: &[(&str, &str)]) -> Result<Request<Body
         .header("Content-Type", "application/x-www-form-urlencoded")
         .header("Content-Length", &content_length)
         .body(Body::from(body_string))
-        .map_err(|err| ApiError::InvalidUrl(err.to_string()))
+        .map_err(|error| ApiError::InvalidUrl(error.to_string()))
 }
 
 pub fn post_form<T: for<'de> serde::Deserialize<'de>>(
@@ -84,6 +84,6 @@ pub fn get_json<T: for<'de> serde::Deserialize<'de>>(
     }
     let request = builder
         .body(Body::empty())
-        .map_err(|err| ApiError::InvalidUrl(err.to_string()))?;
+        .map_err(|error| ApiError::InvalidUrl(error.to_string()))?;
     block_on(send(request))
 }

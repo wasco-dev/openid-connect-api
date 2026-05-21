@@ -8,15 +8,6 @@ use crate::wasco_dev::open_id_connect::types::{
     UserInfo,
 };
 
-impl CodeChallengeMethod {
-    fn as_str(&self) -> &'static str {
-        match self {
-            CodeChallengeMethod::Plain => "plain",
-            CodeChallengeMethod::S256 => "S256",
-        }
-    }
-}
-
 pub struct AuthorizationUrlOptions {
     pub state: Option<String>,
     pub nonce: Option<String>,
@@ -25,30 +16,6 @@ pub struct AuthorizationUrlOptions {
     pub code_challenge_method: Option<CodeChallengeMethod>,
     pub login_hint: Option<String>,
     pub prompt: Option<String>,
-}
-
-impl AuthorizationUrlOptions {
-    fn push_options_to_params_vec(self, params: &mut String) {
-        self.state
-            .inspect(|state| push_param(params, "state", state));
-        self.nonce
-            .inspect(|nonce| push_param(params, "nonce", nonce));
-        self.response_mode
-            .inspect(|response_mode| push_param(params, "response_mode", response_mode));
-        self.code_challenge
-            .inspect(|code_challenge| push_param(params, "code_challenge", code_challenge));
-        self.code_challenge_method.inspect(|code_challenge_method| {
-            push_param(
-                params,
-                "code_challenge_method",
-                code_challenge_method.as_str(),
-            )
-        });
-        self.login_hint
-            .inspect(|login_hint| push_param(params, "login_hint", login_hint));
-        self.prompt
-            .inspect(|prompt| push_param(params, "prompt", prompt));
-    }
 }
 
 fn normalize_scope(scope: &str) -> String {
@@ -71,9 +38,44 @@ pub fn build_authorization_url(
 
     let mut params = create_base_params(&client_id, &redirect_uri, &scope_str, &response_type);
 
-    options.push_options_to_params_vec(&mut params);
+    push_authorization_options_to_params(options, &mut params);
 
     authorization_endpoint + "?" + &params
+}
+
+fn push_authorization_options_to_params(options: AuthorizationUrlOptions, params: &mut String) {
+    options
+        .state
+        .inspect(|state| push_param(params, "state", state));
+    options
+        .nonce
+        .inspect(|nonce| push_param(params, "nonce", nonce));
+    options
+        .response_mode
+        .inspect(|response_mode| push_param(params, "response_mode", response_mode));
+    options
+        .code_challenge
+        .inspect(|code_challenge| push_param(params, "code_challenge", code_challenge));
+    options.code_challenge_method.inspect(|method| {
+        push_param(
+            params,
+            "code_challenge_method",
+            code_challenge_method_as_str(method),
+        )
+    });
+    options
+        .login_hint
+        .inspect(|login_hint| push_param(params, "login_hint", login_hint));
+    options
+        .prompt
+        .inspect(|prompt| push_param(params, "prompt", prompt));
+}
+
+fn code_challenge_method_as_str(method: &CodeChallengeMethod) -> &'static str {
+    match method {
+        CodeChallengeMethod::Plain => "plain",
+        CodeChallengeMethod::S256 => "S256",
+    }
 }
 
 pub fn exchange_code(
@@ -91,8 +93,8 @@ pub fn exchange_code(
         ("code", &code),
         ("redirect_uri", &redirect_uri),
     ];
-    if let Some(ref v) = code_verifier {
-        params.push(("code_verifier", v));
+    if let Some(ref verifier) = code_verifier {
+        params.push(("code_verifier", verifier));
     }
     Ok(post_form::<TokenResponseDe>(&token_endpoint, &params)?.into())
 }
@@ -153,8 +155,8 @@ pub fn poll_device_token(
         ("client_id", &client_id),
         ("device_code", &device_code),
     ];
-    if let Some(ref s) = client_secret {
-        params.push(("client_secret", s));
+    if let Some(ref secret) = client_secret {
+        params.push(("client_secret", secret));
     }
     Ok(post_form::<TokenResponseDe>(&token_endpoint, &params)?.into())
 }

@@ -3,7 +3,7 @@
 /// All endpoint URLs are caller-supplied — typically sourced from a
 /// discovery document fetched via `get-discovery`.
 
-package wasco-dev:open-id-connect@1.0.0;
+package wasco-dev:open-id-connect@1.0.1;
 
 interface types {
 
